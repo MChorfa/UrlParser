@@ -1,10 +1,8 @@
 package lp.tools;
 
-import static org.apache.commons.lang.StringUtils.*;
-
 import java.io.UnsupportedEncodingException;
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
@@ -19,13 +17,13 @@ import java.util.Map;
  * @author nowind_lee@qq.com
  * @version 0.5
  */
-public class URIParser {
+public class URLParser {
 
 	private String host;
 
 	private Integer port;
 
-	private String scheme;
+	private String protocol;
 
 	// use LinkedHashMap to keep the order of items
 	private LinkedHashMap<String, List<String>> params = new LinkedHashMap<String, List<String>>();
@@ -34,26 +32,26 @@ public class URIParser {
 
 	private String userInfo;
 
-	private String fragment;
-
 	private String charset;
 
-	public URIParser(String uri) throws URISyntaxException {
+	public URLParser(String uri) throws MalformedURLException {
 		this(uri, "utf-8");
 	}
 
 	/**
-	 * http://user:password@host:port/aaa/bbb;xxx=xxx?eee=fff&eee=ddd&eee= lll#ref
+	 * http://user:password@host:port/aaa/bbb;xxx=xxx?eee=ggg&fff=ddd&fff=lll
+	 * 
+	 * @throws MalformedURLException
 	 */
-	public URIParser(String uri, String charset) throws URISyntaxException {
+	public URLParser(String uri, String charset) throws MalformedURLException {
 		checkNull(uri, "uri");
 		if (charset != null && !Charset.isSupported(charset)) {
 			throw new IllegalArgumentException("charset is not supported: " + charset);
 		}
 
-		URI u = new URI(uri);
+		URL u = new URL(uri);
 		this.charset = charset;
-		this.scheme = u.getScheme();
+		this.protocol = u.getProtocol();
 		this.userInfo = u.getUserInfo();
 		this.host = u.getHost();
 		this.port = u.getPort();
@@ -62,7 +60,6 @@ public class URIParser {
 		}
 		this.path = u.getPath();
 		this.params = parseQueryString(substringAfter(uri, "?"));
-		this.fragment = u.getFragment();
 	}
 
 	public void addParam(String name, String value) {
@@ -81,10 +78,6 @@ public class URIParser {
 			return;
 		}
 		this.params.remove(name);
-	}
-
-	public void updateParam(String name, String value) {
-		updateParams(name, value);
 	}
 
 	public void updateParams(String name, String... values) {
@@ -115,12 +108,12 @@ public class URIParser {
 	}
 
 	public List<String> getParams(String name) {
-		List<String> list = getRawParams(name);
-		if (list == null) {
+		List<String> rawParams = getRawParams(name);
+		if (rawParams == null) {
 			return null;
 		}
 		List<String> params = new ArrayList<String>();
-		for (String value : params) {
+		for (String value : rawParams) {
 			params.add(encode(value));
 		}
 		return params;
@@ -133,6 +126,30 @@ public class URIParser {
 			map.put(name, encode(value));
 		}
 		return map;
+	}
+
+	public String getHost() {
+		return host;
+	}
+
+	public Integer getPort() {
+		return port;
+	}
+
+	public String getProtocol() {
+		return protocol;
+	}
+
+	public String getPath() {
+		return path;
+	}
+
+	public String getUserInfo() {
+		return userInfo;
+	}
+
+	public String getCharset() {
+		return charset;
 	}
 
 	public String createQueryString() {
@@ -155,8 +172,8 @@ public class URIParser {
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		if (this.scheme != null) {
-			sb.append(this.scheme).append("://");
+		if (this.protocol != null) {
+			sb.append(this.protocol).append("://");
 		}
 		if (this.userInfo != null) {
 			sb.append(this.userInfo).append("@");
@@ -171,9 +188,6 @@ public class URIParser {
 		String query = createQueryString();
 		if (query != null) {
 			sb.append("?").append(query);
-		}
-		if (this.fragment != null) {
-			sb.append("#").append(fragment);
 		}
 
 		return sb.toString();
@@ -226,6 +240,53 @@ public class URIParser {
 			values.add(value);
 		}
 		return params;
+	}
+
+	private static boolean isBlank(String str) {
+		return str == null || str.trim().length() == 0;
+	}
+
+	private static String substringBefore(String str, String sep) {
+		int index = str.indexOf(sep);
+		return index == -1 ? "" : str.substring(0, index);
+	}
+
+	private static String substringAfter(String str, String sep) {
+		int index = str.indexOf(sep);
+		return index == -1 ? "" : str.substring(index + 1);
+	}
+
+	/**
+	 * Usage.
+	 */
+	public static void main(String[] args) throws Exception {
+		String url = "http://user:password@host:80/aaa/bbb;xxx=xxx?eee=111&fff=222&fff=333";
+
+		URLParser parser = new URLParser(url);
+
+		// get basic infomation
+		System.out.println(parser.getHost());
+		System.out.println(parser.getPort());
+		System.out.println(parser.getProtocol());
+		System.out.println(parser.getPath());
+		System.out.println(parser.getUserInfo());
+		System.out.println(parser.getCharset());
+
+		// get paramsa
+		System.out.println(parser.getParam("eee"));
+		System.out.println(parser.getParam("fff"));
+		System.out.println(parser.getParams("fff"));
+
+		// update params
+		parser.removeParams("eee");
+		parser.addParam("ggg", "444");
+		parser.updateParams("fff", "555");
+
+		// create query string
+		System.out.println(parser.createQueryString());
+
+		// full url
+		System.out.println(parser.toString());
 	}
 
 }
