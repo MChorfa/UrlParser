@@ -1,0 +1,1 @@
+This is a simple uri parser, we can use it to parse a uri and get the params and other information.
