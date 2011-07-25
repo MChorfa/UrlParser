@@ -32,10 +32,14 @@ public class URLParser {
 
 	private String userInfo;
 
+	private String query;
+
 	private String charset;
 
-	public URLParser(String uri) throws MalformedURLException {
-		this(uri, "utf-8");
+	private boolean hasDomain = true;
+
+	public URLParser(String url) throws MalformedURLException {
+		this(url, "utf-8");
 	}
 
 	/**
@@ -43,23 +47,35 @@ public class URLParser {
 	 * 
 	 * @throws MalformedURLException
 	 */
-	public URLParser(String uri, String charset) throws MalformedURLException {
-		checkNull(uri, "uri");
+	public URLParser(final String url, final String charset) throws MalformedURLException {
+		checkNull(url, "url");
 		if (charset != null && !Charset.isSupported(charset)) {
 			throw new IllegalArgumentException("charset is not supported: " + charset);
 		}
-
-		URL u = new URL(uri);
-		this.charset = charset;
-		this.protocol = u.getProtocol();
-		this.userInfo = u.getUserInfo();
-		this.host = u.getHost();
-		this.port = u.getPort();
-		if (this.port == -1) {
-			this.port = null;
+		final URL u;
+		if (url.matches("\\w+[:][/][/].*")) {
+			hasDomain = true;
+			u = new URL(url);
+		} else {
+			hasDomain = false;
+			u = new URL("http://dummy" + (url.startsWith("/") ? url : ("/" + url)));
 		}
-		this.path = u.getPath();
-		this.params = parseQueryString(substringAfter(uri, "?"));
+
+		this.charset = charset;
+		if (hasDomain) {
+			this.protocol = u.getProtocol();
+			this.host = u.getHost();
+			this.port = u.getPort();
+			if (this.port != null && this.port == -1) {
+				this.port = null;
+			}
+			this.path = u.getPath();
+			this.userInfo = u.getUserInfo();
+		} else {
+			this.path = url.startsWith("/") ? u.getPath() : u.getPath().substring(1);
+		}
+		this.query = u.getQuery();
+		this.params = parseQueryString(substringAfter(url, "?"));
 	}
 
 	public void addParam(String name, String value) {
@@ -152,6 +168,10 @@ public class URLParser {
 		return charset;
 	}
 
+	public String getQuery() {
+		return query;
+	}
+
 	public String createQueryString() {
 		if (this.params.isEmpty()) {
 			return "";
@@ -186,7 +206,7 @@ public class URLParser {
 		}
 		sb.append(this.path);
 		String query = createQueryString();
-		if (query != null) {
+		if (query.trim().length() > 0) {
 			sb.append("?").append(query);
 		}
 
@@ -260,7 +280,7 @@ public class URLParser {
 	 * Usage.
 	 */
 	public static void main(String[] args) throws Exception {
-		String url = "http://user:password@host:80/aaa/bbb;xxx=xxx?eee=111&fff=222&fff=333";
+		String url = "ftp://www.test.com/aaa/bbb;xxx=xxx?eee=111&fff=222&fff=333";
 
 		URLParser parser = new URLParser(url);
 
@@ -269,6 +289,7 @@ public class URLParser {
 		System.out.println(parser.getPort());
 		System.out.println(parser.getProtocol());
 		System.out.println(parser.getPath());
+		System.out.println(parser.getQuery());
 		System.out.println(parser.getUserInfo());
 		System.out.println(parser.getCharset());
 
